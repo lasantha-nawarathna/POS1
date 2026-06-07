@@ -1,0 +1,15 @@
+{
+  "name": "pos-system",
+  "version": "1.0.0",
+  "description": "Touch-friendly Point of Sale System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "sql.js": "^1.11.0",
+    "express": "^4.21.0",
+    "multer": "^1.4.5-lts.1"
+  }
+}

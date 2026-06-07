@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>POS System</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="loginScreen" class="login-screen">
+    <div class="login-box">
+      <h1 class="login-title">POS System</h1>
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="loginUsername" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPassword" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg btn-full">Login</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="app" style="display:none">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="store-name" id="storeName">My Store</h1>
+        <span class="date-time" id="dateTime"></span>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-icon" onclick="showView('pos')" title="POS">🛒</button>
+        <button class="btn btn-icon" onclick="showView('orders')" title="Orders">📋</button>
+        <button class="btn btn-icon" onclick="showView('reports')" title="Reports">📊</button>
+        <button class="btn btn-icon" onclick="showView('storage')" title="Storage">📦</button>
+        <button class="btn btn-icon admin-only" onclick="showView('admin')" title="Admin">⚙️</button>
+        <div class="user-badge" id="userBadge" onclick="showUserMenu()">
+          <span id="userName">User</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- POS View -->
+    <div id="posView" class="view active">
+      <div class="pos-layout">
+        <div class="products-panel">
+          <div class="search-bar">
+            <input type="text" id="searchInput" placeholder="🔍 Search products..." oninput="filterProducts()">
+          </div>
+          <div class="categories-bar" id="categoriesBar"></div>
+          <div class="products-grid" id="productsGrid"></div>
+        </div>
+        <div class="cart-panel">
+          <div class="cart-header">
+            <h2>Current Order</h2>
+            <button class="btn btn-sm btn-danger" onclick="clearCart()">Clear</button>
+          </div>
+          <div class="cart-items" id="cartItems">
+            <div class="cart-empty">Tap products to add them</div>
+          </div>
+          <div class="cart-summary">
+            <div class="summary-row">
+              <span>Subtotal</span>
+              <span id="subtotal">$0.00</span>
+            </div>
+            <div class="summary-row">
+              <span>Discount</span>
+              <div class="discount-input">
+                <button class="btn btn-xs" onclick="adjustDiscount(-1)">-</button>
+                <input type="number" id="discountInput" value="0" min="0" step="0.5" onchange="updateTotals()">
+                <button class="btn btn-xs" onclick="adjustDiscount(1)">+</button>
+              </div>
+            </div>
+            <div class="summary-row">
+              <span>Tax</span>
+              <span id="taxAmount">$0.00</span>
+            </div>
+            <div class="summary-row total-row">
+              <span>TOTAL</span>
+              <span id="totalAmount">$0.00</span>
+            </div>
+          </div>
+          <div class="payment-buttons">
+            <button class="btn btn-pay btn-cash" onclick="openPayment('cash')">💵 Cash</button>
+            <button class="btn btn-pay btn-card" onclick="openPayment('card')">💳 Card</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders View -->
+    <div id="ordersView" class="view">
+      <div class="view-header">
+        <h2>Order History</h2>
+        <div class="filter-bar">
+          <input type="date" id="orderDateFilter" onchange="loadOrders()">
+          <button class="btn btn-sm" onclick="document.getElementById('orderDateFilter').value='';loadOrders()">All</button>
+        </div>
+      </div>
+      <div class="orders-list" id="ordersList"></div>
+    </div>
+
+    <!-- Reports View -->
+    <div id="reportsView" class="view">
+      <div class="view-header">
+        <h2>Sales Reports</h2>
+        <div class="filter-bar">
+          <input type="date" id="reportFrom">
+          <span>to</span>
+          <input type="date" id="reportTo">
+          <button class="btn btn-sm btn-primary" onclick="loadReports()">Generate</button>
+          <button class="btn btn-sm" onclick="setReportToday()">Today</button>
+          <button class="btn btn-sm" onclick="setReportWeek()">This Week</button>
+          <button class="btn btn-sm" onclick="setReportMonth()">This Month</button>
+        </div>
+      </div>
+      <div class="reports-tabs">
+        <button class="report-tab active" onclick="switchReportTab('sales')">Sales</button>
+        <button class="report-tab admin-only" onclick="switchReportTab('users')">Users</button>
+      </div>
+      <div class="reports-content" id="reportsContent"></div>
+    </div>
+
+    <!-- Storage View -->
+    <div id="storageView" class="view">
+      <div class="view-header">
+        <h2>Storage & Inventory</h2>
+        <div class="filter-bar">
+          <button class="btn btn-sm btn-primary" onclick="loadStorageReport()">Refresh</button>
+        </div>
+      </div>
+      <div class="reports-content" id="storageContent"></div>
+    </div>
+
+    <!-- Admin View -->
+    <div id="adminView" class="view">
+      <div class="admin-layout">
+        <div class="admin-sidebar">
+          <button class="admin-nav-btn active" onclick="showAdminTab('products', this)">Products</button>
+          <button class="admin-nav-btn" onclick="showAdminTab('categories', this)">Categories</button>
+          <button class="admin-nav-btn" onclick="showAdminTab('users', this)">Users</button>
+          <button class="admin-nav-btn" onclick="showAdminTab('settings', this)">Settings</button>
+        </div>
+        <div class="admin-content">
+          <!-- Products Tab -->
+          <div id="adminProducts" class="admin-tab active">
+            <div class="admin-header">
+              <h2>Products</h2>
+              <button class="btn btn-primary" onclick="openProductModal()">+ Add Product</button>
+            </div>
+            <div class="admin-search">
+              <input type="text" id="adminProductSearch" placeholder="Search products..." oninput="loadAdminProducts()">
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table" id="productsTable">
+                <thead>
+                  <tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Cost</th><th>Stock</th><th>Status</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="productsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Categories Tab -->
+          <div id="adminCategories" class="admin-tab">
+            <div class="admin-header">
+              <h2>Categories</h2>
+              <button class="btn btn-primary" onclick="openCategoryModal()">+ Add Category</button>
+            </div>
+            <div class="categories-admin-grid" id="categoriesAdminGrid"></div>
+          </div>
+
+          <!-- Users Tab -->
+          <div id="adminUsers" class="admin-tab">
+            <div class="admin-header">
+              <h2>Users</h2>
+              <button class="btn btn-primary" onclick="openUserModal()">+ Add User</button>
+            </div>
+            <div class="admin-table-wrap">
+              <table class="admin-table">
+                <thead>
+                  <tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Settings Tab -->
+          <div id="adminSettings" class="admin-tab">
+            <h2>Settings</h2>
+            <form class="settings-form" id="settingsForm" onsubmit="saveSettings(event)">
+              <div class="form-group">
+                <label>Store Name</label>
+                <input type="text" name="store_name" id="set_store_name">
+              </div>
+              <div class="form-group">
+                <label>Tax Rate (e.g. 0.10 for 10%)</label>
+                <input type="number" name="tax_rate" id="set_tax_rate" step="0.01" min="0" max="1">
+              </div>
+              <div class="form-group">
+                <label>Currency Symbol</label>
+                <input type="text" name="currency" id="set_currency" maxlength="3">
+              </div>
+              <div class="form-group">
+                <label>Receipt Footer Message</label>
+                <input type="text" name="receipt_footer" id="set_receipt_footer">
+              </div>
+              <div class="form-group">
+                <label>Low Stock Alert Threshold</label>
+                <input type="number" name="low_stock_alert" id="set_low_stock_alert" min="1">
+              </div>
+              <button type="submit" class="btn btn-primary btn-lg">Save Settings</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Menu Dropdown -->
+  <div class="user-menu" id="userMenu" style="display:none">
+    <button onclick="openPasswordModal()">Change Password</button>
+    <button onclick="handleLogout()">Logout</button>
+  </div>
+
+  <!-- Payment Modal -->
+  <div class="modal-overlay" id="paymentModal">
+    <div class="modal payment-modal">
+      <div class="modal-header">
+        <h2>Payment</h2>
+        <button class="btn btn-icon" onclick="closeModal('paymentModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="payment-total">
+          <span>Total Due:</span>
+          <span class="big-amount" id="paymentTotalDisplay">$0.00</span>
+        </div>
+        <div class="payment-method-select">
+          <button class="btn btn-method active" id="methodCash" onclick="selectPayMethod('cash')">💵 Cash</button>
+          <button class="btn btn-method" id="methodCard" onclick="selectPayMethod('card')">💳 Card</button>
+        </div>
+        <div id="cashSection">
+          <div class="numpad-display">
+            <span id="numpadDisplay">0.00</span>
+          </div>
+          <div class="quick-cash" id="quickCash"></div>
+          <div class="numpad">
+            <button onclick="numpadPress('1')">1</button>
+            <button onclick="numpadPress('2')">2</button>
+            <button onclick="numpadPress('3')">3</button>
+            <button onclick="numpadPress('4')">4</button>
+            <button onclick="numpadPress('5')">5</button>
+            <button onclick="numpadPress('6')">6</button>
+            <button onclick="numpadPress('7')">7</button>
+            <button onclick="numpadPress('8')">8</button>
+            <button onclick="numpadPress('9')">9</button>
+            <button onclick="numpadPress('.')">.</button>
+            <button onclick="numpadPress('0')">0</button>
+            <button onclick="numpadPress('back')">⌫</button>
+          </div>
+        </div>
+        <div class="payment-change" id="changeDisplay" style="display:none">
+          <span>Change:</span>
+          <span class="big-amount change-amount" id="changeAmount">$0.00</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg btn-secondary" onclick="closeModal('paymentModal')">Cancel</button>
+        <button class="btn btn-lg btn-success" id="completePaymentBtn" onclick="completePayment()">Complete Sale</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div class="modal-overlay" id="receiptModal">
+    <div class="modal receipt-modal">
+      <div class="modal-header">
+        <h2>Receipt</h2>
+        <button class="btn btn-icon" onclick="closeModal('receiptModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="receipt" id="receiptContent"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg" onclick="closeModal('receiptModal')">Close</button>
+        <button class="btn btn-lg btn-primary" onclick="printReceipt()">🖨️ Print</button>
+        <button class="btn btn-lg btn-success" onclick="closeModal('receiptModal');newOrder()">New Order</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Product Modal -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="productModalTitle">Add Product</h2>
+        <button class="btn btn-icon" onclick="closeModal('productModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="productForm" onsubmit="saveProduct(event)">
+          <input type="hidden" id="prod_id">
+          <input type="hidden" id="prod_image_url">
+          <div class="image-upload-area" id="imageUploadArea" onclick="document.getElementById('prodImageInput').click()">
+            <img id="prodImagePreview" class="image-preview" style="display:none">
+            <div id="imageUploadPlaceholder" class="image-upload-placeholder">
+              <span>📷</span>
+              <span>Tap to upload image</span>
+            </div>
+            <button type="button" class="btn btn-xs btn-danger image-remove-btn" id="imageRemoveBtn" style="display:none" onclick="removeProductImage(event)">Remove</button>
+          </div>
+          <input type="file" id="prodImageInput" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" id="prod_name" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Price *</label>
+              <input type="number" id="prod_price" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+              <label>Cost Price</label>
+              <input type="number" id="prod_cost_price" step="0.01" min="0" value="0">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Category</label>
+              <select id="prod_category_id"></select>
+            </div>
+            <div class="form-group">
+              <label>Stock</label>
+              <input type="number" id="prod_stock" min="0" value="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Barcode</label>
+            <input type="text" id="prod_barcode">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg" onclick="closeModal('productModal')">Cancel</button>
+        <button class="btn btn-lg btn-primary" onclick="document.getElementById('productForm').requestSubmit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category Modal -->
+  <div class="modal-overlay" id="categoryModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="categoryModalTitle">Add Category</h2>
+        <button class="btn btn-icon" onclick="closeModal('categoryModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="categoryForm" onsubmit="saveCategory(event)">
+          <input type="hidden" id="cat_id">
+          <div class="form-group">
+            <label>Name *</label>
+            <input type="text" id="cat_name" required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Color</label>
+              <input type="color" id="cat_color" value="#4a90d9">
+            </div>
+            <div class="form-group">
+              <label>Icon (emoji)</label>
+              <input type="text" id="cat_icon" value="📦" maxlength="4">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Sort Order</label>
+            <input type="number" id="cat_sort_order" value="0" min="0">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg" onclick="closeModal('categoryModal')">Cancel</button>
+        <button class="btn btn-lg btn-primary" onclick="document.getElementById('categoryForm').requestSubmit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Modal -->
+  <div class="modal-overlay" id="userModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="userModalTitle">Add User</h2>
+        <button class="btn btn-icon" onclick="closeModal('userModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" onsubmit="saveUser(event)">
+          <input type="hidden" id="user_id">
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="user_name" required>
+          </div>
+          <div class="form-group">
+            <label>Username *</label>
+            <input type="text" id="user_username" required>
+          </div>
+          <div class="form-group">
+            <label>Password <span id="pwdHint">*</span></label>
+            <input type="password" id="user_password">
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select id="user_role">
+              <option value="cashier">Cashier</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg" onclick="closeModal('userModal')">Cancel</button>
+        <button class="btn btn-lg btn-primary" onclick="document.getElementById('userForm').requestSubmit()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Modal -->
+  <div class="modal-overlay" id="passwordModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Change Password</h2>
+        <button class="btn btn-icon" onclick="closeModal('passwordModal')">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="passwordForm" onsubmit="changePassword(event)">
+          <div class="form-group">
+            <label>Current Password</label>
+            <input type="password" id="pwd_current" required>
+          </div>
+          <div class="form-group">
+            <label>New Password</label>
+            <input type="password" id="pwd_new" required minlength="4">
+          </div>
+          <div class="form-group">
+            <label>Confirm New Password</label>
+            <input type="password" id="pwd_confirm" required>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-lg" onclick="closeModal('passwordModal')">Cancel</button>
+        <button class="btn btn-lg btn-primary" onclick="document.getElementById('passwordForm').requestSubmit()">Change</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Detail Modal -->
+  <div class="modal-overlay" id="orderDetailModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Order Details</h2>
+        <button class="btn btn-icon" onclick="closeModal('orderDetailModal')">✕</button>
+      </div>
+      <div class="modal-body" id="orderDetailContent"></div>
+      <div class="modal-footer" id="orderDetailFooter"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
